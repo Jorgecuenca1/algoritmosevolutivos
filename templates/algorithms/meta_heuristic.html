@@ -1,0 +1,263 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Meta-Heuristic Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="text-center mb-4">🧪 Meta-Heuristic Algorithm Generator</h1>
+        <p class="text-center text-muted mb-5">
+            Automatically generate and evolve optimization algorithms using Genetic Programming
+        </p>
+        <div class="text-center mb-4">
+            <a href="{% url 'algorithms:index' %}" class="btn btn-secondary">← Back to Main</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Generate Random Algorithm</h5>
+            </div>
+            <div class="card-body">
+                <p>Create a random algorithm by combining different components</p>
+                <input type="text" id="algorithm-name" class="form-control mb-3" placeholder="Algorithm Name (optional)">
+                <button id="generate-random-btn" class="btn btn-success btn-block w-100">
+                    🎲 Generate Random Algorithm
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">Evolve Algorithms</h5>
+            </div>
+            <div class="card-body">
+                <p>Use Genetic Programming to evolve better algorithms</p>
+
+                <label>Test Function:</label>
+                <select id="evolve-function" class="form-control mb-2">
+                    {% for key, func in functions.items %}
+                    <option value="{{ key }}">{{ func.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>Population Size:</label>
+                <input type="number" id="n-algorithms" class="form-control mb-2" value="5" min="3" max="20">
+
+                <label>Generations:</label>
+                <input type="number" id="n-generations" class="form-control mb-2" value="3" min="2" max="10">
+
+                <label>Test Iterations:</label>
+                <input type="number" id="test-iterations" class="form-control mb-3" value="30" min="10" max="100">
+
+                <button id="evolve-btn" class="btn btn-warning btn-block w-100">
+                    🧬 Evolve Algorithms
+                </button>
+                <small class="text-muted">This may take a few minutes...</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Result</h5>
+            </div>
+            <div class="card-body" id="result-area">
+                <p class="text-muted text-center">Generate or evolve an algorithm to see results</p>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Generated Algorithms Library</h5>
+            </div>
+            <div class="card-body">
+                {% if generated_algorithms %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Performance</th>
+                                <th>Type</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for algo in generated_algorithms %}
+                            <tr>
+                                <td>{{ algo.name }}</td>
+                                <td>{{ algo.performance_score|default:"N/A" }}</td>
+                                <td>
+                                    {% if algo.is_evolved %}
+                                    <span class="badge badge-success">Evolved</span>
+                                    {% else %}
+                                    <span class="badge badge-info">Random</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary test-algo-btn" data-id="{{ algo.id }}">
+                                        Test
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No algorithms generated yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-spinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px;">
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <p class="mt-2">Processing...</p>
+    </div>
+</div>
+
+<script>
+// Generate Random Algorithm
+document.getElementById('generate-random-btn').addEventListener('click', function() {
+    const name = document.getElementById('algorithm-name').value;
+
+    document.getElementById('loading-spinner').style.display = 'block';
+
+    fetch('{% url "algorithms:generate_algorithm" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-spinner').style.display = 'none';
+
+        if (data.success) {
+            let html = `
+                <div class="alert alert-success">
+                    <h5>✅ Algorithm Generated!</h5>
+                    <p><strong>Name:</strong> ${data.algorithm.name}</p>
+                    <p><strong>Population Size:</strong> ${data.algorithm.population_size}</p>
+                    <p><strong>Components:</strong> ${data.algorithm.components.length}</p>
+                </div>
+                <h6>Components:</h6>
+                <ul class="list-group">
+            `;
+            data.algorithm.components.forEach(comp => {
+                html += `<li class="list-group-item">${comp.name}</li>`;
+            });
+            html += '</ul>';
+
+            document.getElementById('result-area').innerHTML = html;
+            location.reload(); // Reload to show in library
+        } else {
+            document.getElementById('result-area').innerHTML =
+                `<div class="alert alert-danger">Error: ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        alert('Error: ' + error);
+    });
+});
+
+// Evolve Algorithms
+document.getElementById('evolve-btn').addEventListener('click', function() {
+    const functionKey = document.getElementById('evolve-function').value;
+    const nAlgorithms = document.getElementById('n-algorithms').value;
+    const nGenerations = document.getElementById('n-generations').value;
+    const testIterations = document.getElementById('test-iterations').value;
+
+    if (!confirm('Evolution may take several minutes. Continue?')) {
+        return;
+    }
+
+    document.getElementById('loading-spinner').style.display = 'block';
+
+    fetch('{% url "algorithms:evolve_algorithms" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            function: functionKey,
+            n_algorithms: nAlgorithms,
+            n_generations: nGenerations,
+            test_iterations: testIterations
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-spinner').style.display = 'none';
+
+        if (data.success) {
+            let html = `
+                <div class="alert alert-success">
+                    <h5>✅ Best Algorithm Evolved!</h5>
+                    <p><strong>Name:</strong> ${data.algorithm.name}</p>
+                    <p><strong>Population Size:</strong> ${data.algorithm.population_size}</p>
+                    <p><strong>Components:</strong> ${data.algorithm.components.length}</p>
+                </div>
+                <h6>Components:</h6>
+                <ul class="list-group">
+            `;
+            data.algorithm.components.forEach(comp => {
+                html += `<li class="list-group-item">${comp.name}</li>`;
+            });
+            html += '</ul>';
+
+            document.getElementById('result-area').innerHTML = html;
+            location.reload(); // Reload to show in library
+        } else {
+            document.getElementById('result-area').innerHTML =
+                `<div class="alert alert-danger">Error: ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        alert('Error: ' + error);
+    });
+});
+
+// Test Algorithm buttons
+document.querySelectorAll('.test-algo-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const algoId = this.getAttribute('data-id');
+        const functionKey = prompt('Enter function to test (sphere, rastrigin, etc):');
+
+        if (!functionKey) return;
+
+        document.getElementById('loading-spinner').style.display = 'block';
+
+        fetch(`/api/test-generated/${algoId}/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({function: functionKey, iterations: 100})
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loading-spinner').style.display = 'none';
+
+            if (data.success) {
+                window.location.href = `/results/${data.session_id}/`;
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            document.getElementById('loading-spinner').style.display = 'none';
+            alert('Error: ' + error);
+        });
+    });
+});
+</script>
+
+{% endblock %}

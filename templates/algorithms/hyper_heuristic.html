@@ -1,0 +1,162 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Hyper-Heuristic - Algorithm Recommendation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="text-center mb-4">🎯 Hyper-Heuristic System</h1>
+        <p class="text-center text-muted mb-5">
+            Get intelligent algorithm recommendations based on problem characteristics
+        </p>
+        <div class="text-center mb-4">
+            <a href="{% url 'algorithms:index' %}" class="btn btn-secondary">← Back to Main</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Select Problem</h5>
+            </div>
+            <div class="card-body">
+                <h6>Built-in Functions</h6>
+                <select id="function-select" class="form-control mb-3">
+                    <option value="">-- Select a function --</option>
+                    {% for key, func in functions.items %}
+                    <option value="{{ key }}">{{ func.name }} - {{ func.description }}</option>
+                    {% endfor %}
+                </select>
+
+                {% if custom_problems %}
+                <h6 class="mt-4">Custom Problems</h6>
+                <select id="custom-problem-select" class="form-control mb-3">
+                    <option value="">-- Select custom problem --</option>
+                    {% for problem in custom_problems %}
+                    <option value="{{ problem.id }}">{{ problem.name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <button id="get-recommendation-btn" class="btn btn-primary btn-block w-100 mt-3">
+                    Get Recommendation
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Recommendation Result</h5>
+            </div>
+            <div class="card-body" id="recommendation-result">
+                <p class="text-muted text-center">Select a problem and click "Get Recommendation"</p>
+            </div>
+        </div>
+
+        <div class="card mt-3" id="rankings-card" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Algorithm Rankings</h5>
+            </div>
+            <div class="card-body" id="rankings-result">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-spinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+        <span class="sr-only">Loading...</span>
+    </div>
+</div>
+
+<script>
+document.getElementById('get-recommendation-btn').addEventListener('click', function() {
+    const functionKey = document.getElementById('function-select').value;
+    const customProblemId = document.getElementById('custom-problem-select') ?
+        document.getElementById('custom-problem-select').value : '';
+
+    if (!functionKey && !customProblemId) {
+        alert('Please select a problem first');
+        return;
+    }
+
+    // Show loading
+    document.getElementById('loading-spinner').style.display = 'block';
+
+    // Call API
+    fetch('{% url "algorithms:recommend_algorithm" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            function: functionKey,
+            custom_problem_id: customProblemId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-spinner').style.display = 'none';
+
+        if (data.success) {
+            // Display recommendation
+            const rec = data.recommendation;
+            let html = `
+                <div class="alert alert-success">
+                    <h5>✅ Recommended Algorithm: <strong>${rec.algorithm.toUpperCase()}</strong></h5>
+                    <p><strong>Confidence:</strong> ${(rec.confidence * 100).toFixed(1)}%</p>
+                    <p><strong>Reason:</strong> ${rec.reason}</p>
+                    ${rec.alternatives && rec.alternatives.length > 0 ?
+                        `<p><strong>Alternatives:</strong> ${rec.alternatives.join(', ')}</p>` : ''}
+                </div>
+            `;
+            document.getElementById('recommendation-result').innerHTML = html;
+
+            // Display rankings
+            if (data.rankings) {
+                let rankingsHtml = '<table class="table table-sm"><thead><tr><th>Rank</th><th>Algorithm</th><th>Score</th></tr></thead><tbody>';
+                data.rankings.forEach((item, index) => {
+                    rankingsHtml += `<tr>
+                        <td>${index + 1}</td>
+                        <td>${item.algorithm.toUpperCase()}</td>
+                        <td>${(item.score * 100).toFixed(1)}%</td>
+                    </tr>`;
+                });
+                rankingsHtml += '</tbody></table>';
+                document.getElementById('rankings-result').innerHTML = rankingsHtml;
+                document.getElementById('rankings-card').style.display = 'block';
+            }
+        } else {
+            document.getElementById('recommendation-result').innerHTML =
+                `<div class="alert alert-danger">Error: ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        document.getElementById('recommendation-result').innerHTML =
+            `<div class="alert alert-danger">Error: ${error}</div>`;
+    });
+});
+
+// Clear custom problem when function is selected
+document.getElementById('function-select').addEventListener('change', function() {
+    if (this.value && document.getElementById('custom-problem-select')) {
+        document.getElementById('custom-problem-select').value = '';
+    }
+});
+
+// Clear function when custom problem is selected
+if (document.getElementById('custom-problem-select')) {
+    document.getElementById('custom-problem-select').addEventListener('change', function() {
+        if (this.value) {
+            document.getElementById('function-select').value = '';
+        }
+    });
+}
+</script>
+
+{% endblock %}

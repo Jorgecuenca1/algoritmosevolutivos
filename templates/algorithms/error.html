@@ -1,0 +1,15 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 text-center">
+        <div class="alert alert-danger">
+            <h1>❌ Error</h1>
+            <p class="lead">{{ error }}</p>
+            <a href="/" class="btn btn-primary">🏠 Back to Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,248 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Evolutionary Algorithms Optimizer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="text-center mb-4">🧬 Evolutionary Algorithms Optimizer</h1>
+        <p class="text-center text-muted mb-5">
+            Explore different evolutionary algorithms to solve optimization problems.
+            Select an algorithm and objective function to see how they perform!
+        </p>
+    </div>
+</div>
+
+<!-- Navigation to Advanced Features -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">🚀 Advanced Features</h5>
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'algorithms:hyper_heuristic' %}" class="btn btn-primary btn-block w-100">
+                            🎯 Hyper-Heuristic
+                            <br><small>Get algorithm recommendations</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'algorithms:meta_heuristic' %}" class="btn btn-success btn-block w-100">
+                            🧪 Algorithm Generator
+                            <br><small>Create & evolve algorithms</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'algorithms:custom_problems' %}" class="btn btn-info btn-block w-100">
+                            📝 Custom Problems
+                            <br><small>Upload your own problems</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'algorithms:flight_optimizer' %}" class="btn btn-warning btn-block w-100">
+                            ✈️ Flight Optimizer
+                            <br><small>Optimize flight selection</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>📊 Select Optimization Algorithm</h3>
+        <div class="row" id="algorithm-selection">
+            {% for key, algo in algorithms.items %}
+            <div class="col-12 mb-3">
+                <div class="card algorithm-card" data-algorithm="{{ key }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ algo.name }}</h5>
+                        <p class="card-text">{{ algo.description }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <h3>🎯 Select Objective Function</h3>
+        <div class="row" id="function-selection">
+            {% for key, func in functions.items %}
+            <div class="col-12 mb-3">
+                <div class="card function-card" data-function="{{ key }}">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ func.name }}</h5>
+                        <p class="card-text">{{ func.description }}</p>
+                        <small class="text-muted">
+                            Domain: [{{ func.domain.0 }}, {{ func.domain.1 }}] × [{{ func.domain.0 }}, {{ func.domain.1 }}]<br>
+                            Global Minimum: {{ func.global_minimum }} at ({{ func.global_optimum.0 }}, {{ func.global_optimum.1 }})
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">⚙️ Optimization Settings</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="iterations" class="form-label">Number of Iterations/Generations:</label>
+                        <input type="number" class="form-control" id="iterations" value="100" min="10" max="1000">
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button class="btn btn-primary btn-lg w-100" id="run-optimization" disabled>
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            🚀 Run Optimization
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4" id="results-section" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-success result-highlight">
+            <h5>✅ Optimization Complete!</h5>
+            <p id="results-summary"></p>
+            <a id="results-link" class="btn btn-success">📊 View Detailed Results</a>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4" id="error-section" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <h5>❌ Error</h5>
+            <p id="error-message"></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedAlgorithm = null;
+let selectedFunction = null;
+
+// Algorithm selection
+document.querySelectorAll('.algorithm-card').forEach(card => {
+    card.addEventListener('click', function() {
+        // Remove previous selection
+        document.querySelectorAll('.algorithm-card').forEach(c => c.classList.remove('selected'));
+
+        // Add selection to clicked card
+        this.classList.add('selected');
+        selectedAlgorithm = this.dataset.algorithm;
+
+        updateRunButton();
+    });
+});
+
+// Function selection
+document.querySelectorAll('.function-card').forEach(card => {
+    card.addEventListener('click', function() {
+        // Remove previous selection
+        document.querySelectorAll('.function-card').forEach(c => c.classList.remove('selected'));
+
+        // Add selection to clicked card
+        this.classList.add('selected');
+        selectedFunction = this.dataset.function;
+
+        updateRunButton();
+    });
+});
+
+function updateRunButton() {
+    const runButton = document.getElementById('run-optimization');
+    if (selectedAlgorithm && selectedFunction) {
+        runButton.disabled = false;
+    } else {
+        runButton.disabled = true;
+    }
+}
+
+// Run optimization
+document.getElementById('run-optimization').addEventListener('click', function() {
+    if (!selectedAlgorithm || !selectedFunction) {
+        alert('Please select both an algorithm and a function');
+        return;
+    }
+
+    const iterations = document.getElementById('iterations').value;
+    const runButton = document.getElementById('run-optimization');
+    const spinner = document.querySelector('.loading-spinner');
+
+    // Show loading state
+    runButton.disabled = true;
+    spinner.style.display = 'inline-block';
+    runButton.innerHTML = '<span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>⏳ Running...';
+
+    // Hide previous results/errors
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('error-section').style.display = 'none';
+
+    // Send request
+    fetch('/optimize/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            algorithm: selectedAlgorithm,
+            function: selectedFunction,
+            iterations: parseInt(iterations)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Reset button
+        runButton.disabled = false;
+        spinner.style.display = 'none';
+        runButton.innerHTML = '🚀 Run Optimization';
+
+        if (data.success) {
+            // Show results
+            const resultsSummary = document.getElementById('results-summary');
+            const resultsLink = document.getElementById('results-link');
+
+            resultsSummary.innerHTML = `
+                Best solution found: (${data.best_solution[0].toFixed(4)}, ${data.best_solution[1].toFixed(4)})<br>
+                Best fitness: ${data.best_fitness.toFixed(6)}
+            `;
+
+            resultsLink.href = `/results/${data.session_id}/`;
+            document.getElementById('results-section').style.display = 'block';
+        } else {
+            // Show error
+            document.getElementById('error-message').textContent = data.error;
+            document.getElementById('error-section').style.display = 'block';
+        }
+
+        updateRunButton();
+    })
+    .catch(error => {
+        // Reset button
+        runButton.disabled = false;
+        spinner.style.display = 'none';
+        runButton.innerHTML = '🚀 Run Optimization';
+
+        // Show error
+        document.getElementById('error-message').textContent = 'Network error: ' + error.message;
+        document.getElementById('error-section').style.display = 'block';
+
+        updateRunButton();
+    });
+});
+</script>
+{% endblock %}

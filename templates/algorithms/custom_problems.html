@@ -1,0 +1,244 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Custom Problems{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="text-center mb-4">📝 Custom Problem Manager</h1>
+        <p class="text-center text-muted mb-5">
+            Define and test your own optimization problems
+        </p>
+        <div class="text-center mb-4">
+            <a href="{% url 'algorithms:index' %}" class="btn btn-secondary">← Back to Main</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Create Custom Problem</h5>
+            </div>
+            <div class="card-body">
+                <label>Problem Name:</label>
+                <input type="text" id="problem-name" class="form-control mb-2" placeholder="My Custom Problem">
+
+                <label>Description:</label>
+                <textarea id="problem-description" class="form-control mb-2" rows="2" placeholder="Optional description"></textarea>
+
+                <label>Problem Type:</label>
+                <select id="problem-type" class="form-control mb-2">
+                    <option value="continuous">Continuous Optimization</option>
+                    <option value="combinatorial">Combinatorial Optimization</option>
+                </select>
+
+                <label>Bounds (for continuous):</label>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <input type="number" id="bounds-lower" class="form-control" placeholder="Lower" value="-10">
+                    </div>
+                    <div class="col-6">
+                        <input type="number" id="bounds-upper" class="form-control" placeholder="Upper" value="10">
+                    </div>
+                </div>
+
+                <label>Dimensions:</label>
+                <input type="number" id="dimensions" class="form-control mb-3" value="2" min="1" max="10">
+
+                <label>Function Code (Python):</label>
+                <div class="mb-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadTemplate('continuous')">
+                        Load Continuous Template
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadTemplate('constrained')">
+                        Load Constrained Template
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadTemplate('engineering')">
+                        Load Engineering Template
+                    </button>
+                </div>
+                <textarea id="function-code" class="form-control mb-3" rows="12" style="font-family: monospace;">def my_function(x):
+    """
+    Custom optimization function
+    x: numpy array [x[0], x[1], ...]
+    Returns: float value to minimize
+    """
+    return np.sum(x**2)
+</textarea>
+
+                <button id="create-problem-btn" class="btn btn-primary btn-block w-100">
+                    Create Problem
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Test Custom Problem</h5>
+            </div>
+            <div class="card-body" id="test-area">
+                <p class="text-muted text-center">Create a problem or select from library to test</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Problem Library</h5>
+            </div>
+            <div class="card-body">
+                {% if problems %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Dims</th>
+                                <th>Uses</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for problem in problems %}
+                            <tr>
+                                <td>{{ problem.name }}</td>
+                                <td>
+                                    {% if problem.problem_type == 'continuous' %}
+                                    <span class="badge badge-primary">continuous</span>
+                                    {% else %}
+                                    <span class="badge badge-warning">{{ problem.problem_type }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ problem.dimensions }}</td>
+                                <td>{{ problem.usage_count }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-success test-problem-btn" data-id="{{ problem.id }}" data-name="{{ problem.name }}">
+                                        Test
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No custom problems yet. Create one above!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-spinner" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px;">
+    <div class="text-center">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <p class="mt-2">Processing...</p>
+    </div>
+</div>
+
+<script>
+// Load template
+function loadTemplate(templateName) {
+    fetch(`/api/template/${templateName}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('function-code').value = data.template;
+        }
+    });
+}
+
+// Create Problem
+document.getElementById('create-problem-btn').addEventListener('click', function() {
+    const name = document.getElementById('problem-name').value;
+    const description = document.getElementById('problem-description').value;
+    const problemType = document.getElementById('problem-type').value;
+    const functionCode = document.getElementById('function-code').value;
+    const boundsLower = document.getElementById('bounds-lower').value;
+    const boundsUpper = document.getElementById('bounds-upper').value;
+    const dimensions = document.getElementById('dimensions').value;
+
+    if (!name || !functionCode) {
+        alert('Please provide a name and function code');
+        return;
+    }
+
+    document.getElementById('loading-spinner').style.display = 'block';
+
+    fetch('{% url "algorithms:create_custom_problem" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            description: description,
+            problem_type: problemType,
+            function_code: functionCode,
+            bounds_lower: boundsLower,
+            bounds_upper: boundsUpper,
+            dimensions: dimensions
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-spinner').style.display = 'none';
+
+        if (data.success) {
+            alert('Problem created successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-spinner').style.display = 'none';
+        alert('Error: ' + error);
+    });
+});
+
+// Test Problem buttons
+document.querySelectorAll('.test-problem-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const problemId = this.getAttribute('data-id');
+        const problemName = this.getAttribute('data-name');
+
+        const algorithm = prompt('Select algorithm (ga, pso, aco, tlbo, ts):', 'ga');
+        if (!algorithm) return;
+
+        const iterations = prompt('Number of iterations:', '100');
+        if (!iterations) return;
+
+        document.getElementById('loading-spinner').style.display = 'block';
+
+        fetch(`/api/test-problem/${problemId}/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                algorithm: algorithm,
+                iterations: parseInt(iterations)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loading-spinner').style.display = 'none';
+
+            if (data.success) {
+                window.location.href = `/results/${data.session_id}/`;
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            document.getElementById('loading-spinner').style.display = 'none';
+            alert('Error: ' + error);
+        });
+    });
+});
+</script>
+
+{% endblock %}

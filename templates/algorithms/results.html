@@ -1,0 +1,185 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}Optimization Results{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>📊 Optimization Results</h1>
+            <a href="/" class="btn btn-secondary">🏠 Back to Home</a>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card result-highlight">
+            <div class="card-body">
+                <h5 class="card-title">🔬 Algorithm Used</h5>
+                <h6 class="text-primary">{{ algorithm_info.name }}</h6>
+                <p class="card-text">{{ algorithm_info.description }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card result-highlight">
+            <div class="card-body">
+                <h5 class="card-title">🎯 Objective Function</h5>
+                <h6 class="text-success">{{ function_info.name }}</h6>
+                <p class="card-text">{{ function_info.description }}</p>
+                <small class="text-muted">
+                    Domain: [{{ function_info.domain.0 }}, {{ function_info.domain.1 }}] × [{{ function_info.domain.0 }}, {{ function_info.domain.1 }}]
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">📈 Final Results Summary</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-primary text-white rounded">
+                            <h4>{{ final_result.best_solution.0|floatformat:4 }}</h4>
+                            <small>Best X</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-success text-white rounded">
+                            <h4>{{ final_result.best_solution.1|floatformat:4 }}</h4>
+                            <small>Best Y</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-info text-white rounded">
+                            <h4>{{ final_result.best_fitness|floatformat:6 }}</h4>
+                            <small>Best Fitness</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center p-3 bg-warning text-white rounded">
+                            <h4>{{ total_iterations }}</h4>
+                            <small>Iterations</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="text-center p-3 bg-secondary text-white rounded">
+                            <h4>{{ improvement|floatformat:6 }}</h4>
+                            <small>Total Improvement</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-center p-3 bg-dark text-white rounded">
+                            <h4>{{ improvement_percent|floatformat:2 }}%</h4>
+                            <small>Improvement Percentage</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">📉 Convergence Plot</h5>
+                <p class="text-muted">This plot shows how the algorithm's best and average fitness values improved over iterations.</p>
+                {{ convergence_plot|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">🎯 Solution Trajectory</h5>
+                <p class="text-muted">This plot shows the path of the best solution through the search space. The red star indicates the global optimum.</p>
+                {{ trajectory_plot|safe }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">📊 Performance Analysis</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>🎯 Accuracy Analysis</h6>
+                        <ul>
+                            {% if function_info.global_optimum %}
+                            <li><strong>Target:</strong> ({{ function_info.global_optimum.0 }}, {{ function_info.global_optimum.1 }}) with fitness {{ function_info.global_minimum }}</li>
+                            {% else %}
+                            <li><strong>Target:</strong> Unknown (custom problem)</li>
+                            {% endif %}
+                            <li><strong>Found:</strong> ({{ final_result.best_solution.0|floatformat:4 }}, {{ final_result.best_solution.1|floatformat:4 }}) with fitness {{ final_result.best_fitness|floatformat:6 }}</li>
+                            {% if function_info.global_optimum %}
+                            <li><strong>Distance from optimum:</strong>
+                                {% with dx=final_result.best_solution.0|add:function_info.global_optimum.0|add:0.0 dy=final_result.best_solution.1|add:function_info.global_optimum.1|add:0.0 %}
+                                    {{ dx|floatformat:4 }}, {{ dy|floatformat:4 }}
+                                {% endwith %}
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>📈 Convergence Analysis</h6>
+                        <ul>
+                            <li><strong>Total Iterations:</strong> {{ total_iterations }}</li>
+                            <li><strong>Initial Fitness:</strong> {{ results.history.0.best_fitness|floatformat:6 }}</li>
+                            <li><strong>Final Fitness:</strong> {{ final_result.best_fitness|floatformat:6 }}</li>
+                            <li><strong>Improvement:</strong> {{ improvement|floatformat:6 }} ({{ improvement_percent|floatformat:2 }}%)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">💡 Algorithm Insights</h5>
+                <div class="alert alert-info">
+                    {% if algorithm_info.name == "Genetic Algorithm" %}
+                        <strong>Genetic Algorithm:</strong> This algorithm mimics natural evolution, using selection, crossover, and mutation to evolve a population of solutions.
+                        It's excellent for exploring diverse solutions and can escape local optima through mutation.
+                    {% elif algorithm_info.name == "Particle Swarm Optimization" %}
+                        <strong>Particle Swarm Optimization:</strong> Inspired by bird flocking behavior, PSO uses a swarm of particles that share information about good regions.
+                        It typically converges faster than GA but may get trapped in local optima.
+                    {% elif algorithm_info.name == "Ant Colony Optimization" %}
+                        <strong>Ant Colony Optimization:</strong> Based on how ants find optimal paths using pheromone trails.
+                        It's particularly good at balancing exploration and exploitation through pheromone evaporation and deposition.
+                    {% elif algorithm_info.name == "Teaching-Learning-Based Optimization" %}
+                        <strong>Teaching-Learning-Based Optimization:</strong> Simulates the teaching-learning process in a classroom.
+                        It has two phases: learning from the teacher and learning from classmates, which helps in both exploitation and exploration.
+                    {% elif algorithm_info.name == "Tabu Search" %}
+                        <strong>Tabu Search:</strong> A local search method that uses memory (tabu list) to avoid revisiting recent solutions.
+                        It can escape local optima by accepting worse solutions when necessary.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 text-center">
+        <a href="/" class="btn btn-primary btn-lg">🔄 Try Another Optimization</a>
+    </div>
+</div>
+{% endblock %}
