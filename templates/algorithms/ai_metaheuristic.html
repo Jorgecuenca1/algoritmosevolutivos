@@ -1,0 +1,443 @@
+{% extends 'algorithms/base.html' %}
+
+{% block title %}AI-Powered Metaheuristic Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="text-center mb-4">🤖 AI-Powered Metaheuristic Generator</h1>
+        <p class="text-center text-muted mb-5">
+            Describe your optimization problem and let ChatGPT analyze it and generate a custom algorithm for you!
+        </p>
+        <div class="text-center mb-4">
+            <a href="/" class="btn btn-secondary">← Back to Home</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">🔑 Step 1: Configure API Key</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>ℹ️ How to get your OpenAI API Key:</strong>
+                    <ol class="mb-0">
+                        <li>Go to <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API Keys</a></li>
+                        <li>Sign in or create an account</li>
+                        <li>Click "Create new secret key"</li>
+                        <li>Copy the key and paste it below</li>
+                    </ol>
+                    <p class="mb-0 mt-2"><strong>Note:</strong> Your API key is only stored temporarily in your session and is never saved permanently.</p>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="apiKey" class="form-label"><strong>OpenAI API Key:</strong></label>
+                    <input type="password" class="form-control" id="apiKey" placeholder="sk-..." required>
+                    <small class="form-text text-muted">Your key is stored only in your session and used exclusively for AI analysis.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="modelSelect" class="form-label"><strong>AI Model:</strong></label>
+                    <select class="form-select" id="modelSelect">
+                        <option value="gpt-4o-mini" selected>GPT-4o Mini (Recommended - 200x cheaper than GPT-4) 💰</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fast & Economic) ⚡</option>
+                        <option value="gpt-4o">GPT-4o (Balanced performance) ⚖️</option>
+                        <option value="gpt-4">GPT-4 (Best quality, expensive) 💎</option>
+                    </select>
+                    <small class="form-text text-muted">
+                        <strong>Cost comparison per problem:</strong><br>
+                        • GPT-4o Mini: ~$0.001 USD 💚<br>
+                        • GPT-3.5 Turbo: ~$0.005 USD<br>
+                        • GPT-4o: ~$0.02 USD<br>
+                        • GPT-4: ~$0.10 USD
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">📝 Step 2: Describe Your Problem</h4>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="problemDescription" class="form-label"><strong>Problem Description:</strong></label>
+                    <textarea class="form-control" id="problemDescription" rows="6"
+                        placeholder="Example: I need to minimize the cost of a manufacturing process that has 3 variables: temperature (between 100-500°C), pressure (between 1-10 bar), and time (between 1-24 hours). The process should minimize energy consumption while maintaining quality standards. There are nonlinear relationships between variables and the landscape is expected to have multiple local minima."
+                        required></textarea>
+                    <small class="form-text text-muted">
+                        Be specific about: number of variables, constraints, bounds, objective (minimize/maximize), problem characteristics.
+                    </small>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="boundsLower" class="form-label">Lower Bound:</label>
+                        <input type="number" class="form-control" id="boundsLower" value="-10" step="0.1">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="boundsUpper" class="form-label">Upper Bound:</label>
+                        <input type="number" class="form-control" id="boundsUpper" value="10" step="0.1">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dimensions" class="form-label">Dimensions:</label>
+                        <input type="number" class="form-control" id="dimensions" value="2" min="1" max="10">
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button class="btn btn-primary btn-lg w-100" id="analyzeBtn">
+                        <span id="analyzeSpinner" class="spinner-border spinner-border-sm me-2" role="status" style="display: none;"></span>
+                        🔍 Analyze Problem with AI
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Problem Analysis Results -->
+<div class="row" id="analysisSection" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4 border-success">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">✅ Step 3: AI Analysis Results</h4>
+            </div>
+            <div class="card-body">
+                <div id="analysisResults"></div>
+                <div class="mt-4">
+                    <h5>Generate Custom Algorithm:</h5>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="generateFunction">
+                        <label class="form-check-label" for="generateFunction">
+                            Also generate objective function from problem description (experimental)
+                        </label>
+                    </div>
+                    <button class="btn btn-success btn-lg w-100" id="generateAlgoBtn">
+                        <span id="generateSpinner" class="spinner-border spinner-border-sm me-2" role="status" style="display: none;"></span>
+                        🧬 Generate Custom Algorithm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Algorithm Code Results -->
+<div class="row" id="algorithmSection" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-sm mb-4 border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">🧪 Step 4: Generated Algorithm</h4>
+            </div>
+            <div class="card-body">
+                <h5>Algorithm Code:</h5>
+                <pre class="bg-light p-3 border rounded" style="max-height: 400px; overflow-y: auto;"><code id="algorithmCode"></code></pre>
+
+                <div id="functionCodeSection" style="display: none;">
+                    <h5 class="mt-3">Generated Objective Function:</h5>
+                    <pre class="bg-light p-3 border rounded" style="max-height: 300px; overflow-y: auto;"><code id="functionCode"></code></pre>
+                </div>
+
+                <div class="mt-4">
+                    <h5>Execute Algorithm:</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="iterations" class="form-label">Iterations:</label>
+                            <input type="number" class="form-control" id="iterations" value="100" min="10" max="500">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="populationSize" class="form-label">Population Size:</label>
+                            <input type="number" class="form-control" id="populationSize" value="50" min="10" max="200">
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3" id="builtinFunctionOption">
+                        <input class="form-check-input" type="checkbox" id="useBuiltinFunction">
+                        <label class="form-check-label" for="useBuiltinFunction">
+                            Use built-in test function instead (recommended for testing the algorithm)
+                        </label>
+                        <select class="form-select mt-2" id="builtinFunctionSelect" style="display: none;">
+                            {% for key, func in functions.items %}
+                            <option value="{{ key }}">{{ func.name }} - {{ func.description }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button class="btn btn-warning btn-lg w-100" id="executeBtn">
+                        <span id="executeSpinner" class="spinner-border spinner-border-sm me-2" role="status" style="display: none;"></span>
+                        🚀 Execute Algorithm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Display -->
+<div class="row" id="errorSection" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <h5>❌ Error</h5>
+            <p id="errorMessage"></p>
+        </div>
+    </div>
+</div>
+
+<!-- Success Display -->
+<div class="row" id="successSection" style="display: none;">
+    <div class="col-12">
+        <div class="alert alert-success">
+            <h5>✅ Optimization Complete!</h5>
+            <div id="successMessage"></div>
+            <a id="resultsLink" class="btn btn-success mt-2">📊 View Detailed Results & AI Conclusions</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let apiKey = '';
+let selectedModel = 'gpt-4o-mini';
+let problemDescription = '';
+let problemAnalysis = null;
+let sessionKey = '';
+
+// Step 1: Analyze Problem
+document.getElementById('analyzeBtn').addEventListener('click', async function() {
+    apiKey = document.getElementById('apiKey').value.trim();
+    selectedModel = document.getElementById('modelSelect').value;
+    problemDescription = document.getElementById('problemDescription').value.trim();
+
+    if (!apiKey) {
+        showError('Please enter your OpenAI API Key');
+        return;
+    }
+
+    if (!problemDescription) {
+        showError('Please describe your optimization problem');
+        return;
+    }
+
+    // Show loading
+    const btn = this;
+    const spinner = document.getElementById('analyzeSpinner');
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+    hideError();
+    hideSuccess();
+
+    try {
+        const response = await fetch('/api/analyze-problem-ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: apiKey,
+                model: selectedModel,
+                problem_description: problemDescription
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            problemAnalysis = data.analysis;
+            displayAnalysis(data.analysis);
+            document.getElementById('analysisSection').style.display = 'block';
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+    }
+});
+
+// Step 2: Generate Algorithm
+document.getElementById('generateAlgoBtn').addEventListener('click', async function() {
+    if (!problemAnalysis) {
+        showError('Please analyze the problem first');
+        return;
+    }
+
+    const boundsLower = parseFloat(document.getElementById('boundsLower').value);
+    const boundsUpper = parseFloat(document.getElementById('boundsUpper').value);
+    const dimensions = parseInt(document.getElementById('dimensions').value);
+    const generateFunction = document.getElementById('generateFunction').checked;
+
+    // Show loading
+    const btn = this;
+    const spinner = document.getElementById('generateSpinner');
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+    hideError();
+
+    try {
+        const response = await fetch('/api/generate-ai-algorithm/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: apiKey,
+                model: selectedModel,
+                problem_description: problemDescription,
+                problem_analysis: problemAnalysis,
+                bounds_lower: boundsLower,
+                bounds_upper: boundsUpper,
+                dimensions: dimensions,
+                generate_function: generateFunction
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            sessionKey = data.session_key;
+            document.getElementById('algorithmCode').textContent = data.algorithm_code;
+
+            if (data.function_code) {
+                document.getElementById('functionCode').textContent = data.function_code;
+                document.getElementById('functionCodeSection').style.display = 'block';
+                document.getElementById('builtinFunctionOption').style.display = 'block';
+            } else {
+                document.getElementById('builtinFunctionOption').style.display = 'block';
+                document.getElementById('useBuiltinFunction').checked = true;
+                document.getElementById('builtinFunctionSelect').style.display = 'block';
+            }
+
+            document.getElementById('algorithmSection').style.display = 'block';
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+    }
+});
+
+// Toggle built-in function selector
+document.getElementById('useBuiltinFunction').addEventListener('change', function() {
+    document.getElementById('builtinFunctionSelect').style.display = this.checked ? 'block' : 'none';
+});
+
+// Step 3: Execute Algorithm
+document.getElementById('executeBtn').addEventListener('click', async function() {
+    if (!sessionKey) {
+        showError('Please generate algorithm first');
+        return;
+    }
+
+    const iterations = parseInt(document.getElementById('iterations').value);
+    const populationSize = parseInt(document.getElementById('populationSize').value);
+    const useBuiltin = document.getElementById('useBuiltinFunction').checked;
+    const builtinFunc = document.getElementById('builtinFunctionSelect').value;
+
+    // Show loading
+    const btn = this;
+    const spinner = document.getElementById('executeSpinner');
+    btn.disabled = true;
+    spinner.style.display = 'inline-block';
+    hideError();
+    hideSuccess();
+
+    try {
+        const response = await fetch('/api/execute-ai-algorithm/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_key: sessionKey,
+                iterations: iterations,
+                population_size: populationSize,
+                use_builtin_function: useBuiltin,
+                builtin_function_key: builtinFunc
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            displaySuccess(data);
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('Network error: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+    }
+});
+
+function displayAnalysis(analysis) {
+    const html = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Problem Type:</strong> ${analysis.problem_type}<br>
+                <strong>Objective:</strong> ${analysis.objective}<br>
+                <strong>Dimensionality:</strong> ${analysis.dimensionality}<br>
+                <strong>Complexity:</strong> ${analysis.complexity}<br>
+            </div>
+            <div class="col-md-6">
+                <strong>Landscape:</strong> ${analysis.landscape}<br>
+                <strong>Constraints:</strong> ${analysis.constraints_type}<br>
+                <strong>Recommended Algorithm:</strong> <span class="badge bg-primary">${analysis.recommended_algorithm}</span>
+            </div>
+        </div>
+        <div class="mt-3">
+            <strong>Reasoning:</strong>
+            <p class="text-muted">${analysis.reasoning}</p>
+        </div>
+        <div class="mt-2">
+            <strong>Key Features:</strong>
+            <ul>
+                ${analysis.key_features.map(f => `<li>${f}</li>`).join('')}
+            </ul>
+        </div>
+    `;
+    document.getElementById('analysisResults').innerHTML = html;
+}
+
+function displaySuccess(data) {
+    const html = `
+        <p><strong>Best Fitness:</strong> ${data.best_fitness.toFixed(6)}</p>
+        <p><strong>Best Solution:</strong> [${data.best_solution.map(x => x.toFixed(4)).join(', ')}]</p>
+        <p><strong>Execution Time:</strong> ${data.execution_time.toFixed(2)} seconds</p>
+        ${data.conclusions ? `
+            <div class="mt-3">
+                <strong>AI Analysis:</strong>
+                <p><strong>Performance:</strong> ${data.conclusions.performance}</p>
+                <p><strong>Summary:</strong> ${data.conclusions.summary}</p>
+            </div>
+        ` : ''}
+    `;
+    document.getElementById('successMessage').innerHTML = html;
+    document.getElementById('resultsLink').href = `/ai-results/${data.session_id}/`;
+    document.getElementById('successSection').style.display = 'block';
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('errorSection').style.display = 'block';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function hideError() {
+    document.getElementById('errorSection').style.display = 'none';
+}
+
+function hideSuccess() {
+    document.getElementById('successSection').style.display = 'none';
+}
+</script>
+{% endblock %}

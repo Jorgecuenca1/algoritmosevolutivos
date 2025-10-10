@@ -19,6 +19,7 @@ from .custom_problem_loader import ProblemLibrary, ProblemValidator, ProblemTemp
 from .models import CustomProblem, GeneratedAlgorithm, OptimizationRun, AlgorithmRecommendation
 from .flight_optimizer import FlightOptimizationProblem, get_flight_optimization_function
 from .flight_evolutionary import GeneticAlgorithmFlights, ParticleSwarmFlights
+from .ai_metaheuristic import AIMetaheuristicService, validate_and_execute_code
 
 
 def index(request):
@@ -767,12 +768,23 @@ def optimize_flights(request):
 
                 algorithm_class = algorithm_info['class']
 
+                # Initialize algorithm based on type
+                algorithm = None
                 if algorithm_key == 'aco':
                     algorithm = algorithm_class(objective_func=objective_func, bounds=bounds, iterations=iterations)
                 elif algorithm_key == 'tlbo':
                     algorithm = algorithm_class(objective_func=objective_func, bounds=bounds, iterations=iterations)
                 elif algorithm_key == 'ts':
                     algorithm = algorithm_class(objective_func=objective_func, bounds=bounds, iterations=iterations)
+                else:
+                    # Default for any other algorithm
+                    algorithm = algorithm_class(objective_func=objective_func, bounds=bounds, iterations=iterations)
+
+                if algorithm is None:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Algorithm {algorithm_key} not supported for flight optimization'
+                    })
 
                 history = algorithm.optimize()
                 best_solution = history[-1]['best_solution']
@@ -832,3 +844,357 @@ def flight_results(request, session_id):
         'results': results,
         'session_id': session_id
     })
+
+
+# ========== AI-POWERED METAHEURISTIC VIEWS ==========
+
+def ai_metaheuristic_page(request):
+    """Main page for AI-powered metaheuristic generator"""
+    context = {
+        'functions': OPTIMIZATION_FUNCTIONS,
+    }
+    return render(request, 'algorithms/ai_metaheuristic.html', context)
+
+
+@csrf_exempt
+def analyze_problem_with_ai(request):
+    """Analyze problem using ChatGPT"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            api_key = data.get('api_key')
+            model = data.get('model', 'gpt-4o-mini')
+            problem_description = data.get('problem_description')
+            constraints = data.get('constraints', {})
+
+            if not api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'API key is required'
+                })
+
+            if not problem_description:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Problem description is required'
+                })
+
+            # Initialize AI service with selected model
+            ai_service = AIMetaheuristicService(api_key, model=model)
+
+            # Analyze problem
+            result = ai_service.analyze_problem(problem_description, constraints)
+
+            if not result['success']:
+                return JsonResponse(result)
+
+            # Store API key in session for later use
+            request.session['openai_api_key'] = api_key
+
+            return JsonResponse(result)
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@csrf_exempt
+def generate_ai_algorithm(request):
+    """Generate custom algorithm using ChatGPT"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            api_key = data.get('api_key') or request.session.get('openai_api_key')
+            model = data.get('model', 'gpt-4o-mini')
+            problem_description = data.get('problem_description')
+            problem_analysis = data.get('problem_analysis')
+            bounds_lower = float(data.get('bounds_lower', -10))
+            bounds_upper = float(data.get('bounds_upper', 10))
+            dimensions = int(data.get('dimensions', 2))
+
+            if not api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'API key is required'
+                })
+
+            # Prepare bounds
+            bounds = [[bounds_lower, bounds_upper] for _ in range(dimensions)]
+
+            # Initialize AI service with selected model
+            ai_service = AIMetaheuristicService(api_key, model=model)
+
+            # Generate algorithm code
+            algo_result = ai_service.generate_algorithm_code(
+                problem_description,
+                problem_analysis,
+                bounds,
+                dimensions
+            )
+
+            if not algo_result['success']:
+                return JsonResponse(algo_result)
+
+            # Generate objective function if user provided description
+            func_result = None
+            if data.get('generate_function', False):
+                func_result = ai_service.generate_objective_function(
+                    problem_description,
+                    bounds,
+                    dimensions
+                )
+
+            # Store in session for execution
+            session_key = str(uuid.uuid4())
+            cache.set(f'ai_algorithm_{session_key}', {
+                'algorithm_code': algo_result['code'],
+                'function_code': func_result['code'] if func_result and func_result['success'] else None,
+                'problem_description': problem_description,
+                'problem_analysis': problem_analysis,
+                'bounds': bounds,
+                'api_key': api_key
+            }, 3600)
+
+            return JsonResponse({
+                'success': True,
+                'algorithm_code': algo_result['code'],
+                'function_code': func_result['code'] if func_result and func_result['success'] else None,
+                'session_key': session_key
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@csrf_exempt
+def execute_ai_algorithm(request):
+    """Execute AI-generated algorithm"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            session_key = data.get('session_key')
+            iterations = int(data.get('iterations', 100))
+            population_size = int(data.get('population_size', 50))
+            use_builtin_function = data.get('use_builtin_function', False)
+            builtin_function_key = data.get('builtin_function_key', 'sphere')
+
+            if not session_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Session key is required'
+                })
+
+            # Retrieve algorithm data from cache
+            algo_data = cache.get(f'ai_algorithm_{session_key}')
+            if not algo_data:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Algorithm session expired or not found'
+                })
+
+            algorithm_code = algo_data['algorithm_code']
+            function_code = algo_data.get('function_code')
+            bounds = algo_data['bounds']
+
+            # Get objective function
+            if use_builtin_function:
+                # Use built-in function
+                function_info = OPTIMIZATION_FUNCTIONS[builtin_function_key]
+                objective_func = function_info['function']
+                func_name = function_info['name']
+            elif function_code:
+                # Use AI-generated function
+                func_namespace = {'np': __import__('numpy')}
+                exec(function_code, func_namespace)
+                objective_func = func_namespace.get('objective_function')
+                func_name = "AI-Generated Function"
+                if not objective_func:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Generated function code does not define objective_function'
+                    })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No objective function specified'
+                })
+
+            # Execute algorithm
+            start_time = time.time()
+            exec_result = validate_and_execute_code(
+                algorithm_code,
+                objective_func,
+                bounds,
+                iterations,
+                population_size
+            )
+            execution_time = time.time() - start_time
+
+            if not exec_result['success']:
+                return JsonResponse(exec_result)
+
+            history = exec_result['history']
+
+            # Generate AI-powered conclusions
+            ai_service = AIMetaheuristicService(algo_data['api_key'])
+            conclusions_result = ai_service.generate_conclusions(
+                algo_data['problem_description'],
+                "AI-Generated Algorithm",
+                {'history': history},
+                execution_time
+            )
+
+            # Generate session ID and store results
+            result_session_id = str(uuid.uuid4())
+            results = {
+                'algorithm': {
+                    'name': 'AI-Generated Algorithm',
+                    'description': algo_data['problem_description']
+                },
+                'function': {
+                    'name': func_name,
+                    'description': 'Optimization function',
+                    'global_optimum': None,
+                    'domain': bounds[0] if bounds else [-10, 10]
+                },
+                'history': history,
+                'session_id': result_session_id,
+                'ai_conclusions': conclusions_result.get('conclusions') if conclusions_result['success'] else None,
+                'execution_time': execution_time,
+                'problem_analysis': algo_data['problem_analysis']
+            }
+
+            cache.set(f'optimization_{result_session_id}', results, 3600)
+
+            return JsonResponse({
+                'success': True,
+                'session_id': result_session_id,
+                'best_solution': history[-1]['best_solution'],
+                'best_fitness': history[-1]['best_fitness'],
+                'execution_time': execution_time,
+                'conclusions': conclusions_result.get('conclusions') if conclusions_result['success'] else None
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+def ai_results(request, session_id):
+    """Display AI-generated algorithm results with conclusions"""
+    results = cache.get(f'optimization_{session_id}')
+
+    if not results:
+        return render(request, 'algorithms/error.html', {
+            'error': 'Results not found or expired'
+        })
+
+    # Use existing visualization logic but add AI conclusions
+    history = results['history']
+    algorithm_info = results['algorithm']
+    function_info = results['function']
+    ai_conclusions = results.get('ai_conclusions')
+    problem_analysis = results.get('problem_analysis')
+
+    # Determine badge color for performance
+    performance_badge = 'secondary'
+    if ai_conclusions:
+        perf = ai_conclusions.get('performance', '').lower()
+        if perf == 'excellent':
+            performance_badge = 'success'
+        elif perf == 'good':
+            performance_badge = 'primary'
+        elif perf == 'fair':
+            performance_badge = 'warning'
+        else:
+            performance_badge = 'danger'
+
+    # Create convergence plot
+    iterations = [h.get('iteration', h.get('generation', i)) for i, h in enumerate(history)]
+    best_fitness = [h['best_fitness'] for h in history]
+    avg_fitness = [h['avg_fitness'] for h in history]
+
+    trace1 = go.Scatter(
+        x=iterations,
+        y=best_fitness,
+        mode='lines',
+        name='Best Fitness',
+        line=dict(color='blue')
+    )
+
+    trace2 = go.Scatter(
+        x=iterations,
+        y=avg_fitness,
+        mode='lines',
+        name='Average Fitness',
+        line=dict(color='red', dash='dash')
+    )
+
+    layout = go.Layout(
+        title=f'{algorithm_info["name"]} Convergence',
+        xaxis=dict(title='Iteration'),
+        yaxis=dict(title='Fitness Value'),
+        hovermode='closest'
+    )
+
+    fig = go.Figure(data=[trace1, trace2], layout=layout)
+    convergence_plot = plot(fig, output_type='div', include_plotlyjs=False)
+
+    # Create solution trajectory plot (for 2D)
+    solution_x = [h['best_solution'][0] for h in history]
+    solution_y = [h['best_solution'][1] if len(h['best_solution']) > 1 else 0 for h in history]
+
+    trace_trajectory = go.Scatter(
+        x=solution_x,
+        y=solution_y,
+        mode='lines+markers',
+        name='Solution Trajectory',
+        line=dict(color='green'),
+        marker=dict(size=4)
+    )
+
+    layout_trajectory = go.Layout(
+        title='Solution Trajectory',
+        xaxis=dict(title='X'),
+        yaxis=dict(title='Y'),
+        hovermode='closest'
+    )
+
+    fig_trajectory = go.Figure(data=[trace_trajectory], layout=layout_trajectory)
+    trajectory_plot = plot(fig_trajectory, output_type='div', include_plotlyjs=False)
+
+    # Calculate statistics
+    final_result = history[-1]
+    improvement = history[0]['best_fitness'] - final_result['best_fitness']
+    improvement_percent = (improvement / history[0]['best_fitness']) * 100 if history[0]['best_fitness'] != 0 else 0
+
+    context = {
+        'results': results,
+        'convergence_plot': convergence_plot,
+        'trajectory_plot': trajectory_plot,
+        'final_result': final_result,
+        'improvement': improvement,
+        'improvement_percent': improvement_percent,
+        'total_iterations': len(history),
+        'algorithm_info': algorithm_info,
+        'function_info': function_info,
+        'ai_conclusions': ai_conclusions,
+        'problem_analysis': problem_analysis,
+        'execution_time': results.get('execution_time', 0),
+        'performance_badge': performance_badge
+    }
+
+    return render(request, 'algorithms/ai_results.html', context)

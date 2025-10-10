@@ -29,4 +29,11 @@ urlpatterns = [
     path('flight-optimizer/', views.flight_optimizer_page, name='flight_optimizer'),
     path('api/optimize-flights/', views.optimize_flights, name='optimize_flights'),
     path('flight-results/<str:session_id>/', views.flight_results, name='flight_results'),
+
+    # AI-Powered Metaheuristic
+    path('ai-metaheuristic/', views.ai_metaheuristic_page, name='ai_metaheuristic'),
+    path('api/analyze-problem-ai/', views.analyze_problem_with_ai, name='analyze_problem_ai'),
+    path('api/generate-ai-algorithm/', views.generate_ai_algorithm, name='generate_ai_algorithm'),
+    path('api/execute-ai-algorithm/', views.execute_ai_algorithm, name='execute_ai_algorithm'),
+    path('ai-results/<str:session_id>/', views.ai_results, name='ai_results'),
 ]

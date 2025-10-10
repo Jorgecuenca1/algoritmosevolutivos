@@ -25,6 +25,9 @@ pandas>=2.0.0
 # Machine Learning (for hyper-heuristic)
 scikit-learn>=1.3.0
 
+# AI Integration
+openai>=1.0.0
+
 # Utilities
 python-dateutil==2.9.0.post0
 pyparsing==3.2.4
